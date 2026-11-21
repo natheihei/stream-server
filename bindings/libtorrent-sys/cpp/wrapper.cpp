@@ -50,9 +50,17 @@ static rust::String sha256_to_hex(const lt::sha256_hash &hash) {
 }
 
 static lt::sha1_hash hex_to_sha1(rust::Str hex) {
-  std::string hex_str(hex.data(), hex.size());
+  // Parse through the public stream operator rather than lt::aux::from_hex:
+  // aux:: symbols are not exported by a shared libtorrent (e.g. Arch's
+  // libtorrent-rasterbar), so the old call only linked against static builds.
+  // It also reads exactly 40 hex digits, so a longer string can no longer
+  // overrun the 20-byte digest. Short or non-hex input yields an all-zero hash
+  // (stream_in may have partially written it before failing).
+  std::istringstream is(std::string(hex.data(), hex.size()));
   lt::sha1_hash hash;
-  lt::aux::from_hex(hex_str, hash.data());
+  if (!(is >> hash)) {
+    hash.clear();
+  }
   return hash;
 }
 
